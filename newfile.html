@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<meta name="Generator" content="Kate, the KDE Advanced Text Editor" />
+<title>newfile.rmd</title>
+</head>
+<body>
+<pre style='color:#1f1c1b;background-color:#ffffff;'>
+<span style='color:#803f00;'>---</span>
+title<span style='color:#803f00;'>:</span><span style='color:#bf0303;'> &quot;Activity Recognition Using Predictive Analytics&quot;</span>
+author<span style='color:#803f00;'>:</span><span style='color:#bf0303;'> &quot;Anil Kumar&quot;</span>
+output<span style='color:#803f00;'>:</span>
+<span style='color:#bf0303;'>  </span>html_document<span style='color:#803f00;'>:</span>
+<span style='color:#bf0303;'>    </span>keep_md<span style='color:#803f00;'>:</span><span style='color:#bf0303;'> </span>yes
+  pdf_document<span style='color:#803f00;'>:</span><span style='color:#bf0303;'> </span>default
+<span style='color:#803f00;'>---</span>
+
+<b><span style='color:#b00000;'>## Overview</span></b>
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit, it is now possible to collect a large amount of data about personal activity relatively inexpensively. The aim of this project is to predict the manner <span style='color:#0000bf;'>in</span> which participants perform a barbell lift. The data comes from http<span style='color:#803f00;'>:</span><span style='color:#bf0303;'>//</span>groupware.les.inf.puc<span style='color:#803f00;'>-</span>rio.br<span style='color:#803f00;'>/</span>har wherein <span style='color:#b08000;'>6</span> participants were asked to perform the same set of exercises correctly and incorrectly with accelerometers placed on the belt, forearm, arm, and dumbell.  
+
+For the purpose of this project, the following steps would be followed<span style='color:#803f00;'>:</span>
+
+<span style='color:#b08000;'>1.</span> Data Preprocessing
+<span style='color:#b08000;'>2.</span> Exploratory Analysis
+<span style='color:#b08000;'>3.</span> Prediction Model Selection
+<span style='color:#b08000;'>4.</span> Predicting Test Set Output
+
+<b><span style='color:#b00000;'>## Data Preprocessing </span></b>
+
+First, we load the training and testing set from the online sources and then split the training set further into training and test sets. 
+
+<span style='color:#bf0303;'>```</span><span style='color:#0057ae;'>{r DataLoading, message = FALSE}</span>
+
+<span style='color:#0057ae;'>library(caret)</span>
+<span style='color:#0057ae;'>setwd(&quot;~/Projects/R/Coursera-Practical-Machine-Learning-Assignment-1/&quot;)</span>
+<span style='color:#0057ae;'>trainURL &lt;- &quot;http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv&quot;</span>
+<span style='color:#0057ae;'>testURL &lt;- &quot;http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv&quot;</span>
+
+<span style='color:#0057ae;'>training &lt;- read.csv(url(trainURL))</span>
+<span style='color:#0057ae;'>testing &lt;- read.csv(url(testURL))</span>
+
+<span style='color:#0057ae;'>label &lt;- createDataPartition(training$classe, p = 0.7, list = FALSE)</span>
+<span style='color:#0057ae;'>train &lt;- training[label, ]</span>
+<span style='color:#0057ae;'>test &lt;- training[-label, ]</span>
+
+<span style='color:#bf0303;'>```</span>
+
+From among <span style='color:#b08000;'>160</span> variables present <span style='color:#0000bf;'>in</span> the dataset, some variables have nearly zero variance whereas some contain a lot of <span style='color:#006e28;'>NA</span> terms which need to be excluded from the dataset. Moreover, other <span style='color:#b08000;'>5</span> variables used <span style='color:#0000bf;'>for</span> identification can also be removed. 
+
+<span style='color:#bf0303;'>```</span><span style='color:#0057ae;'>{r DataCleaning}</span>
+
+<span style='color:#0057ae;'>NZV &lt;- nearZeroVar(train)</span>
+<span style='color:#0057ae;'>train &lt;- train[ ,-NZV]</span>
+<span style='color:#0057ae;'>test &lt;- test[ ,-NZV]</span>
+
+<span style='color:#0057ae;'>label &lt;- apply(train, 2, function(x) mean(is.na(x))) &gt; 0.95</span>
+<span style='color:#0057ae;'>train &lt;- train[, -which(label, label == FALSE)]</span>
+<span style='color:#0057ae;'>test &lt;- test[, -which(label, label == FALSE)]</span>
+
+<span style='color:#0057ae;'>train &lt;- train[ , -(1:5)]</span>
+<span style='color:#0057ae;'>test &lt;- test[ , -(1:5)]</span>
+
+<span style='color:#bf0303;'>```</span>
+
+As a result of the preprocessing steps, we were able to reduce <span style='color:#b08000;'>160</span> variables to <span style='color:#b08000;'>54.</span>
+
+<b><span style='color:#b00000;'>## Exploratory Analysis</span></b>
+
+Now that we have cleaned the dataset off absolutely useless varibles, we shall look at the dependence of these variables on each other through a correlation plot. 
+
+<span style='color:#bf0303;'>```</span><span style='color:#0057ae;'>{r CorrelationPlot, fig.width=12, fig.height=8}</span>
+
+<span style='color:#0057ae;'>library(corrplot)</span>
+<span style='color:#0057ae;'>corrMat &lt;- cor(train[,-54])</span>
+<span style='color:#0057ae;'>corrplot(corrMat, method = &quot;color&quot;, type = &quot;lower&quot;, tl.cex = 0.8, tl.col = rgb(0,0,0))</span>
+
+<span style='color:#bf0303;'>```</span>
+
+In the plot above, darker gradient correspond to having high correlation. A Principal Component Analysis can be run to further reduce the correlated variables but we aren<span style='color:#bf0303;'>'t doing that due to the number of correlations being quite few.</span>
+
+<span style='color:#bf0303;'>## Prediction Model Selection</span>
+
+<span style='color:#bf0303;'>We will use 3 methods to model the training set and thereby choose the one having the best accuracy to predict the outcome variable in the testing set. The methods are Decision Tree, Random Forest and Generalized Boosted Model.</span>
+
+<span style='color:#bf0303;'>A confusion matrix plotted at the end of each model will help visualize the analysis better.</span>
+
+<span style='color:#bf0303;'>### Decision Tree</span>
+
+<span style='color:#bf0303;'>```{r DecisionTree, message = FALSE, warning = FALSE, fig.width=18, fig.height=10}</span>
+
+<span style='color:#bf0303;'>library(rpart)</span>
+<span style='color:#bf0303;'>library(rpart.plot)</span>
+<span style='color:#bf0303;'>library(rattle)</span>
+<span style='color:#bf0303;'>set.seed(13908)</span>
+<span style='color:#bf0303;'>modelDT &lt;- rpart(classe ~ ., data = train, method = &quot;class&quot;)</span>
+<span style='color:#bf0303;'>fancyRpartPlot(modelDT)</span>
+
+<span style='color:#bf0303;'>predictDT &lt;- predict(modelDT, test, type = &quot;class&quot;)</span>
+<span style='color:#bf0303;'>confMatDT &lt;- confusionMatrix(predictDT, test$classe)</span>
+<span style='color:#bf0303;'>confMatDT</span>
+
+<span style='color:#bf0303;'>```</span>
+
+<span style='color:#bf0303;'>### Random Forest</span>
+
+<span style='color:#bf0303;'>```{r RandomForest, message = FALSE}</span>
+
+<span style='color:#bf0303;'>library(caret)</span>
+<span style='color:#bf0303;'>set.seed(13908)</span>
+<span style='color:#bf0303;'>control &lt;- trainControl(method = &quot;cv&quot;, number = 3, verboseIter=FALSE)</span>
+<span style='color:#bf0303;'>modelRF &lt;- train(classe ~ ., data = train, method = &quot;rf&quot;, trControl = control)</span>
+<span style='color:#bf0303;'>modelRF$finalModel</span>
+
+<span style='color:#bf0303;'>predictRF &lt;- predict(modelRF, test)</span>
+<span style='color:#bf0303;'>confMatRF &lt;- confusionMatrix(predictRF, test$classe)</span>
+<span style='color:#bf0303;'>confMatRF</span>
+
+<span style='color:#bf0303;'>```</span>
+
+<span style='color:#bf0303;'>### Generalized Boosted Model</span>
+
+<span style='color:#bf0303;'>```{r GBM, message = FALSE}</span>
+
+<span style='color:#bf0303;'>library(caret)</span>
+<span style='color:#bf0303;'>set.seed(13908)</span>
+<span style='color:#bf0303;'>control &lt;- trainControl(method = &quot;repeatedcv&quot;, number = 5, repeats = 1, verboseIter = FALSE)</span>
+<span style='color:#bf0303;'>modelGBM &lt;- train(classe ~ ., data = train, trControl = control, method = &quot;gbm&quot;, verbose = FALSE)</span>
+<span style='color:#bf0303;'>modelGBM$finalModel</span>
+
+<span style='color:#bf0303;'>predictGBM &lt;- predict(modelGBM, test)</span>
+<span style='color:#bf0303;'>confMatGBM &lt;- confusionMatrix(predictGBM, test$classe)</span>
+<span style='color:#bf0303;'>confMatGBM</span>
+
+<span style='color:#bf0303;'>```</span>
+
+<span style='color:#bf0303;'>As Random Forest offers the maximum accuracy of 99.75%, we will go with Random Forest Model to predict our test data class variable.</span>
+
+<span style='color:#bf0303;'>## Predicting Test Set Output</span>
+
+<span style='color:#bf0303;'>```{r TestSetPrediction, messages = FALSE}</span>
+
+<span style='color:#bf0303;'>predictRF &lt;- predict(modelRF, testing)</span>
+<span style='color:#bf0303;'>predictRF</span>
+
+<span style='color:#bf0303;'>```</span></pre>
+</body>
+</html>
